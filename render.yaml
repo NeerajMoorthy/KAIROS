@@ -1,0 +1,21 @@
+# Render Blueprint for the KAIROS backend (https://render.com/docs/blueprint-spec).
+# The frontend stays on Netlify and is built with VITE_API_BASE set to this
+# service's URL.
+services:
+  - type: web
+    name: kairos-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      # the Netlify sites allowed to call this API
+      - key: KAIROS_CORS_ORIGINS
+        value: https://kairos-study-planner.netlify.app,https://stellar-hummingbird-4e2b43.netlify.app
+      # a public server must not index arbitrary folders on itself
+      - key: KAIROS_ALLOWED_ROOTS
+        value: sample_resources

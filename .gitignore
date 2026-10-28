@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+node_modules/
+dist/
+.DS_Store
+kairos_snapshot.json
+kairos_snapshot.json.tmp
+pytest-cache-files-*/
+.pytest-tmp/
+profile.json
+_backup_before_fixes/
+KAIROS.zip
