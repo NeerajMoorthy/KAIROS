@@ -184,5 +184,5 @@ KAIROS does not claim universal novelty, optimal personal decisions, predictive 
 ## Accounts, calendar and charts
 
 - **Accounts.** Sign up and log in from the sidebar. Each account has its own private tasks, plans and focus history. Users and login sessions are kept in the project's own hash table, and passwords are stored as salted PBKDF2 hashes. On your own computer, login is optional and accounts are saved in `backend/kairos_data/`. On the hosted server, `KAIROS_REQUIRE_LOGIN=1` makes login required, and `KAIROS_DATABASE_URL` stores accounts in Postgres, because Render's free disk is wiped whenever the server restarts.
-- **Calendar.** Plan → Calendar shows planned study time and deadlines on a month grid. **Export to calendar (.ics)** downloads a file you can import into Google Calendar, Outlook or Apple Calendar.
+- **Calendar.** Plan → Calendar shows planned study time and deadlines on a month grid.
 - **Charts.** Progress shows focus hours for the last 14 days, and planned versus tracked hours for each task.
