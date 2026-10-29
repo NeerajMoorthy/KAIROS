@@ -6,7 +6,7 @@
  *   Settings  → load example data, set daily availability, see save status
  *   Knowledge → find the demo folder, search, add a folder, rescan after a
  *               file is deleted on disk, remove the folder
- *   Dashboard → start the recommended focus session
+ *   Tasks → start the recommended focus session
  *   Focus     → pause, resume, finish with a progress value
  *   Plan / Progress → see the recalculated plan and progress
  *   Reload    → data is still there, and the snapshot on disk already has it
@@ -91,7 +91,7 @@ async function main() {
 
   try {
     await page.goto(BASE);
-    step("App loads with an empty dashboard");
+    step("App loads with an empty task list");
     await page.getByText("Start with one task").waitFor();
 
     // ------------------------------------------------------------ settings
@@ -151,12 +151,12 @@ async function main() {
     expect(fs.existsSync(path.join(scratch, "Survey_Plan.md")), "removing a folder must not delete files");
 
     // ------------------------------------------------------------ focus
-    step("Dashboard: start the recommended focus session");
-    await nav("Dashboard");
+    step("Tasks: start the recommended focus session");
+    await nav("Tasks");
     await page.getByText("Recommended next action").waitFor();
     const recommendedId = (await api("/api/dashboard")).recommended_action?.task?.id;
-    expect(recommendedId, "the dashboard has a recommended task");
-    await shot("03-dashboard");
+    expect(recommendedId, "there is a recommended task");
+    await shot("03-tasks-next-action");
     await page.getByRole("button", { name: "Start focus session" }).click();
 
     step("Focus: the recommended task is preselected; start the session");

@@ -3,7 +3,6 @@ import {
   BookMarked,
   CalendarRange,
   Clock3,
-  LayoutDashboard,
   ListTodo,
   Menu,
   Moon,
@@ -18,8 +17,7 @@ import { LoadingState } from "@/components/states";
 import { API_BASE, api, type Task } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-// Each page is its own chunk, so the first visit downloads only the dashboard.
-const Dashboard = lazy(() => import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+// Each page is its own chunk, so the first visit downloads only the task list.
 const Tasks = lazy(() => import("@/pages/Tasks").then((m) => ({ default: m.Tasks })));
 const Workspace = lazy(() => import("@/pages/Workspace").then((m) => ({ default: m.Workspace })));
 const Resources = lazy(() => import("@/pages/Resources").then((m) => ({ default: m.Resources })));
@@ -29,7 +27,6 @@ const ProgressPage = lazy(() => import("@/pages/ProgressPage").then((m) => ({ de
 const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 const NAV = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "tasks", label: "Tasks", icon: ListTodo },
   { id: "knowledge", label: "Knowledge", icon: BookMarked },
   { id: "plan", label: "Plan", icon: CalendarRange },
@@ -39,7 +36,6 @@ const NAV = [
 ];
 
 const TITLES: Record<string, { title: string; subtitle: string }> = {
-  dashboard: { title: "Dashboard", subtitle: "Your work, next action, and deadlines" },
   tasks: { title: "Tasks", subtitle: "Keep work, effort, and deadlines up to date" },
   knowledge: { title: "Knowledge Vault", subtitle: "Search the files and folders you choose" },
   plan: { title: "Plan", subtitle: "Fit remaining work into the time you have" },
@@ -75,7 +71,7 @@ function LogoCube() {
 }
 
 export default function App() {
-  const [page, setPage] = useState("dashboard");
+  const [page, setPage] = useState("tasks");
   const [workspaceTask, setWorkspaceTask] = useState<string | null>(null);
   const [focusTask, setFocusTask] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -136,7 +132,7 @@ export default function App() {
     setDialogOpen(true);
   }
 
-  const meta = TITLES[page] ?? TITLES.dashboard;
+  const meta = TITLES[page] ?? TITLES.tasks;
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
   return (
@@ -237,11 +233,8 @@ export default function App() {
 
           <Suspense fallback={<LoadingState />}>
             <div key={page} className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
-              {page === "dashboard" && (
-                <Dashboard refreshKey={refreshKey} onOpenWorkspace={openWorkspace} onNewTask={newTask} onGoto={goto} onStartFocus={openFocus} />
-              )}
               {page === "tasks" && (
-                <Tasks refreshKey={refreshKey} onChanged={bump} onOpenWorkspace={openWorkspace} onNewTask={newTask} onEditTask={editTask} />
+                <Tasks refreshKey={refreshKey} onChanged={bump} onOpenWorkspace={openWorkspace} onNewTask={newTask} onEditTask={editTask} onStartFocus={openFocus} />
               )}
               {page === "workspace" && (
                 <Workspace taskId={workspaceTask} onBack={() => goto("tasks")} onChanged={bump} onStartFocus={openFocus} />

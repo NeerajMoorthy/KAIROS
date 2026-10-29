@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Flag, ListTodo, Plus, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { NextAction } from "@/components/NextAction";
 import { TaskCard } from "@/components/TaskCard";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { Input } from "@/components/ui/input";
@@ -15,12 +16,14 @@ export function Tasks({
   onOpenWorkspace,
   onNewTask,
   onEditTask,
+  onStartFocus,
 }: {
   refreshKey: number;
   onChanged: () => void;
   onOpenWorkspace: (id: string) => void;
   onNewTask: () => void;
   onEditTask: (task: Task) => void;
+  onStartFocus: (id: string) => void;
 }) {
   const [view, setView] = useState<"deadline" | "priority">("deadline");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -90,6 +93,8 @@ export function Tasks({
 
   return (
     <div className="space-y-4">
+      {tasks.length > 0 && <NextAction refreshKey={refreshKey} onStartFocus={onStartFocus} onOpenWorkspace={onOpenWorkspace} />}
+
       <div className="flex flex-wrap items-center gap-2">
         <Tabs value={view} onValueChange={(value) => setView(value as "deadline" | "priority")}>
           <TabsList>
@@ -146,7 +151,7 @@ export function Tasks({
       {loaded && visible.length === 0 && (
         <Card>
           {tasks.length === 0 ? (
-            <EmptyState icon={ListTodo} title="No tasks yet" action={<Button onClick={onNewTask}><Plus className="h-4 w-4" /> Create your first task</Button>}>
+            <EmptyState icon={ListTodo} title="Start with one task" action={<Button onClick={onNewTask}><Plus className="h-4 w-4" /> Create your first task</Button>}>
               Add what you need to do, when it is due, and roughly how long it takes.
             </EmptyState>
           ) : (

@@ -37,7 +37,7 @@ export function Workspace({
     setError(null);
     try {
       // The workspace endpoint builds the resource query the same way for
-      // every page (Dashboard, Focus, here), so results stay consistent.
+      // every page (Tasks, Focus, here), so results stay consistent.
       const [workspace, risksResponse] = await Promise.all([
         api.workspace(taskId, 6, false),
         api.deadlineRisks(),

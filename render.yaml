@@ -15,7 +15,7 @@ services:
         value: 3.12.7
       # the Netlify sites allowed to call this API
       - key: KAIROS_CORS_ORIGINS
-        value: https://kairos-study-planner.netlify.app,https://stellar-hummingbird-4e2b43.netlify.app
+        value: https://kairos-study-planner.netlify.app,https://stellar-hummingbird-4e2b43.netlify.app,https://deluxe-swan-47e748.netlify.app
       # a public server must not index arbitrary folders on itself
       - key: KAIROS_ALLOWED_ROOTS
         value: sample_resources
