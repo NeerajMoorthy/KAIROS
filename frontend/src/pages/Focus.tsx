@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
 import { api, type FocusSession, type RankedResource, type Task } from "@/lib/api";
-import { RankedList } from "@/pages/Resources";
+import { RankedList } from "@/components/RankedList";
 
 /** The server's elapsed_seconds already includes active time up to the moment
  *  it answered, so only the time since that response is added here. (Adding

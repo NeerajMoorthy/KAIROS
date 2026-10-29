@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
 import { AlertTriangle, Clock3, ListTodo, TrendingUp } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { Metric } from "@/components/Metric";
-import { api, type ProgressSummary } from "@/lib/api";
-import { RISK_STYLES } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { RiskBadge } from "@/components/badges";
+import { ErrorState, LoadingState } from "@/components/states";
+import { useApi } from "@/hooks/useApi";
+import { api } from "@/lib/api";
 
 export function ProgressPage({
   refreshKey,
@@ -15,17 +14,10 @@ export function ProgressPage({
   refreshKey: number;
   onOpenTask: (id: string) => void;
 }) {
-  const [data, setData] = useState<ProgressSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, reload } = useApi(api.progressOverview, [refreshKey]);
 
-  useEffect(() => {
-    api.progressOverview()
-      .then((result) => { setData(result); setError(null); })
-      .catch((e) => setError(String(e instanceof Error ? e.message : e)));
-  }, [refreshKey]);
-
-  if (error) return <p className="text-sm text-destructive">{error}</p>;
-  if (!data) return <p className="text-sm text-muted-foreground">Loading progress…</p>;
+  if (error && !data) return <ErrorState message={error} onRetry={reload} />;
+  if (!data) return <LoadingState />;
 
   return (
     <div className="space-y-4">
@@ -55,7 +47,7 @@ export function ProgressPage({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{task.title}</span>
                     <span className="text-xs text-muted-foreground">{task.remaining_hours} h left</span>
-                    {task.risk && <Badge variant="secondary" className={cn("capitalize", RISK_STYLES[task.risk.level])}>{task.risk.level} risk</Badge>}
+                    {task.risk && <RiskBadge level={task.risk.level} />}
                     <span className="w-10 text-right font-mono text-xs">{task.progress}%</span>
                   </div>
                   <ProgressBar className="mt-2" value={task.progress} />

@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Flag, Pencil, Plus, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CalendarDays, Flag, ListTodo, Plus, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { TaskCard } from "@/components/TaskCard";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, type Task } from "@/lib/api";
-import { PRIORITY_STYLES, dueLabel, dueTone } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 export function Tasks({
   refreshKey,
@@ -29,12 +28,14 @@ export function Tasks({
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("view");
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   async function load() {
     try {
       const r = await api.listTasks(view);
       setTasks(r.tasks);
       setError(null);
+      setLoaded(true);
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     }
@@ -101,6 +102,7 @@ export function Tasks({
           </TabsList>
         </Tabs>
         <Input
+          type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search tasks…"
@@ -113,7 +115,7 @@ export function Tasks({
           <option value="completed">Completed</option>
         </Select>
         <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-9 w-44">
-          <option value="view">Sort: {view === "priority" ? "urgency" : "deadline"} (tab order)</option>
+          <option value="view">Sort: tab order</option>
           <option value="deadline">Sort: deadline</option>
           <option value="priority">Sort: priority</option>
           <option value="title">Sort: title</option>
@@ -124,84 +126,32 @@ export function Tasks({
         </Button>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <ErrorState message={error} onRetry={() => void load()} />}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {visible.map((task) => (
-          <Card
+          <TaskCard
             key={task.id}
-            className={cn("group cursor-pointer transition-shadow hover:shadow-md", task.completed && "opacity-65")}
-            onClick={() => onOpenWorkspace(task.id)}
-          >
-            <CardHeader className="pb-2">
-              <div className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 shrink-0 accent-primary"
-                  checked={task.completed}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={() => void toggle(task)}
-                  aria-label="Mark complete"
-                />
-                <div className="min-w-0 flex-1">
-                  <CardTitle className={cn("text-base", task.completed && "line-through")}>
-                    {task.title}
-                  </CardTitle>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {[task.category || task.topic, task.project].filter(Boolean).join(" · ")}
-                  </p>
-                </div>
-                <button
-                  className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
-                  aria-label="Edit task"
-                  title="Edit task"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  onClick={(e) => { e.stopPropagation(); void remove(task.id); }}
-                  aria-label="Delete task"
-                  title="Delete task"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className={PRIORITY_STYLES[task.priority]}>
-                  {task.priority}
-                </Badge>
-                <Badge variant="outline" className="text-[10px]">
-                  {task.status.replace("_", " ")}
-                </Badge>
-                <span className={cn("text-xs font-medium", dueTone(task.deadline, task.completed))}>
-                  {dueLabel(task.deadline)}
-                </span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {task.remaining_hours} h left
-                </span>
-              </div>
-              <div>
-                <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                  <span>Progress</span><span>{task.progress}%</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary/70" style={{ width: `${task.progress}%` }} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            task={task}
+            onOpen={() => onOpenWorkspace(task.id)}
+            onToggle={() => void toggle(task)}
+            onEdit={() => onEditTask(task)}
+            onDelete={() => void remove(task.id)}
+          />
         ))}
       </div>
 
-      {visible.length === 0 && (
+      {!loaded && !error && <LoadingState rows={0} />}
+
+      {loaded && visible.length === 0 && (
         <Card>
-          <CardContent className="p-10 text-center text-sm text-muted-foreground">
-            {tasks.length === 0 ? "No tasks yet — create your first one." : "Nothing matches those filters."}
-          </CardContent>
+          {tasks.length === 0 ? (
+            <EmptyState icon={ListTodo} title="No tasks yet" action={<Button onClick={onNewTask}><Plus className="h-4 w-4" /> Create your first task</Button>}>
+              Add what you need to do, when it is due, and roughly how long it takes.
+            </EmptyState>
+          ) : (
+            <EmptyState icon={SearchX} title="Nothing matches those filters">Try a different search or status.</EmptyState>
+          )}
         </Card>
       )}
     </div>

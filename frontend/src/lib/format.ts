@@ -1,17 +1,17 @@
 import type { Priority } from "@/lib/api";
 
 export const PRIORITY_STYLES: Record<Priority, string> = {
-  LOW: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-  MEDIUM: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
-  HIGH: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  CRITICAL: "bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200",
+  LOW: "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200 dark:bg-slate-800/70 dark:text-slate-200 dark:ring-slate-700",
+  MEDIUM: "bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-200 dark:bg-sky-950/70 dark:text-sky-200 dark:ring-sky-900",
+  HIGH: "bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/70 dark:text-amber-200 dark:ring-amber-900",
+  CRITICAL: "bg-rose-50 text-rose-900 ring-1 ring-inset ring-rose-200 dark:bg-rose-950/70 dark:text-rose-200 dark:ring-rose-900",
 };
 
 export const RISK_STYLES: Record<string, string> = {
-  Low: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  Moderate: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  High: "bg-orange-100 text-orange-900 dark:bg-orange-950 dark:text-orange-200",
-  Critical: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200",
+  Low: "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-200 dark:ring-emerald-900",
+  Moderate: "bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/70 dark:text-amber-200 dark:ring-amber-900",
+  High: "bg-orange-50 text-orange-900 ring-1 ring-inset ring-orange-200 dark:bg-orange-950/70 dark:text-orange-200 dark:ring-orange-900",
+  Critical: "bg-rose-50 text-rose-800 ring-1 ring-inset ring-rose-200 dark:bg-rose-950/70 dark:text-rose-200 dark:ring-rose-900",
 };
 
 export function parseDate(dateStr: string): Date {

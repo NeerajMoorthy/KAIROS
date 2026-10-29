@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, FileText, Play, Save } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { PriorityBadge, RiskBadge } from "@/components/badges";
+import { ErrorState, LoadingState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RankedList } from "@/pages/Resources";
+import { RankedList } from "@/components/RankedList";
 import { api, type DeadlineRisk, type RankedResource, type Task } from "@/lib/api";
-import { PRIORITY_STYLES, RISK_STYLES, dueLabel, dueTone } from "@/lib/format";
+import { dueLabel, dueTone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function Workspace({
@@ -76,15 +77,15 @@ export function Workspace({
   return (
     <div className="space-y-4">
       <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="h-4 w-4" /> Back to tasks</Button>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {loading && !task ? <p className="text-sm text-muted-foreground">Loading task…</p> : task && (
+      {error && <ErrorState message={error} onRetry={() => void load()} />}
+      {loading && !task ? <LoadingState rows={1} /> : task && (
         <>
           <Card>
             <CardHeader className="pb-3">
               <div className="flex flex-wrap items-center gap-2">
                 <CardTitle className="min-w-0 flex-1 text-xl">{task.title}</CardTitle>
-                <Badge variant="secondary" className={PRIORITY_STYLES[task.priority]}>{task.priority}</Badge>
-                {risk && <Badge variant="secondary" className={cn("capitalize", RISK_STYLES[risk.level])}>{risk.level} risk</Badge>}
+                <PriorityBadge priority={task.priority} />
+                {risk && <RiskBadge level={risk.level} />}
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 <span className={cn("font-medium", dueTone(task.deadline, task.completed))}>{dueLabel(task.deadline)}</span>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Metric } from "@/components/Metric";
+import { RiskBadge } from "@/components/badges";
 import { api, type TimelineDay } from "@/lib/api";
 import { shortDate } from "@/lib/format";
 
@@ -116,7 +117,7 @@ export function Plan({ refreshKey }: { refreshKey: number }) {
                     {schedule.deferred.map((task) => (
                       <li key={task.id} className="flex items-center gap-2 rounded-md border p-3">
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">{task.title}</span>
-                        {task.risk && <Badge variant="secondary">{task.risk.level} risk</Badge>}
+                        {task.risk && <RiskBadge level={task.risk.level} />}
                         <Badge variant="outline">{task.hours} h left</Badge>
                       </li>
                     ))}
