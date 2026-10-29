@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, CalendarRange, Check, Clock3, Download, List } from "lucide-react";
+import { CalendarDays, CalendarRange, Check, Clock3, List } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,6 @@ import { PlanCalendar } from "@/components/PlanCalendar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiskBadge } from "@/components/badges";
 import { api, type Task, type TimelineDay } from "@/lib/api";
-import { buildIcs, downloadIcs } from "@/lib/ics";
 import { shortDate } from "@/lib/format";
 
 type PlanData = Awaited<ReturnType<typeof api.adaptivePlan>>;
@@ -34,7 +33,7 @@ export function Plan({ refreshKey }: { refreshKey: number }) {
         daily_hours: daily,
       });
       setSchedule(result);
-      // deadlines for the calendar view and the .ics export
+      // deadlines for the calendar view
       api.listTasks("deadline").then((r) => setTasks(r.tasks)).catch(() => setTasks([]));
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
@@ -102,24 +101,12 @@ export function Plan({ refreshKey }: { refreshKey: number }) {
                 <TabsTrigger value="calendar" className="gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> Calendar</TabsTrigger>
               </TabsList>
             </Tabs>
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto"
-              onClick={() => downloadIcs(buildIcs(schedule.timeline, tasks))}
-              title="Download an .ics file you can import into Google Calendar, Outlook or Apple Calendar"
-            >
-              <Download className="h-3.5 w-3.5" /> Export to calendar (.ics)
-            </Button>
           </div>
 
           {view === "calendar" ? (
             <Card>
               <CardContent className="pt-5">
                 <PlanCalendar timeline={schedule.timeline} tasks={tasks} />
-                <p className="mt-3 text-xs text-muted-foreground">
-                  To add this to Google Calendar: export the .ics file, then open Google Calendar → Settings → Import &amp; export → Import.
-                </p>
               </CardContent>
             </Card>
           ) : (
