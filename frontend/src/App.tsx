@@ -5,6 +5,8 @@ import {
   Clock3,
   LayoutDashboard,
   ListTodo,
+  LogIn,
+  LogOut,
   Menu,
   Moon,
   Plus,
@@ -13,9 +15,11 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AuthScreen } from "@/components/AuthScreen";
+import { LogoCube } from "@/components/LogoCube";
 import { TaskDialog } from "@/components/TaskDialog";
 import { LoadingState } from "@/components/states";
-import { API_BASE, api, type Task } from "@/lib/api";
+import { API_BASE, AUTH_EXPIRED_EVENT, api, getToken, setToken, type Task } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 // Each page is its own chunk, so the first visit downloads only the dashboard.
@@ -61,19 +65,6 @@ function initialDark(): boolean {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
 }
 
-/** The KAIROS mark: a small cube drawn with 3D-transformed faces. */
-function LogoCube() {
-  return (
-    <div className="flex h-9 w-9 items-center justify-center [perspective:200px]" aria-hidden>
-      <div className="relative h-5 w-5 [transform-style:preserve-3d] [transform:rotateX(-24deg)_rotateY(38deg)]">
-        <span className="absolute inset-0 rounded-[3px] bg-primary [transform:translateZ(10px)]" />
-        <span className="absolute inset-0 rounded-[3px] bg-[hsl(250_70%_45%)] [transform:rotateY(90deg)_translateZ(10px)]" />
-        <span className="absolute inset-0 rounded-[3px] bg-[hsl(var(--glow-2))] [transform:rotateX(90deg)_translateZ(10px)]" />
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const [page, setPage] = useState("dashboard");
   const [workspaceTask, setWorkspaceTask] = useState<string | null>(null);
@@ -84,6 +75,35 @@ export default function App() {
   const [online, setOnline] = useState<boolean | null>(null);
   const [dark, setDark] = useState(initialDark);
   const [navOpen, setNavOpen] = useState(false);
+  const [user, setUser] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [loginRequired, setLoginRequired] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+
+  // Who is logged in (if anyone), and whether this server requires it.
+  useEffect(() => {
+    api.me()
+      .then((result) => {
+        if (getToken() && !result.username) setToken(null);
+        setUser(result.username);
+        setLoginRequired(result.login_required);
+      })
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  useEffect(() => {
+    function expired() {
+      if (!getToken()) return;
+      setToken(null);
+      setUser(null);
+      setAuthNotice("Your login has expired. Please log in again.");
+      setShowAuth(true);
+    }
+    window.addEventListener(AUTH_EXPIRED_EVENT, expired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, expired);
+  }, []);
 
   // Check on load and whenever data changes; while offline, retry every 10 s
   // so the banner clears once the backend starts.
@@ -134,6 +154,37 @@ export default function App() {
   function editTask(task: Task) {
     setEditingTask(task);
     setDialogOpen(true);
+  }
+
+  function signedIn(token: string, username: string) {
+    setToken(token);
+    setUser(username);
+    setShowAuth(false);
+    setAuthNotice(null);
+    goto("dashboard");
+    bump();
+  }
+
+  function logOut() {
+    api.logOut().catch(() => {}).finally(() => {
+      setToken(null);
+      setUser(null);
+      goto("dashboard");
+      bump();
+    });
+  }
+
+  if (!authChecked) {
+    return (
+      <div className="mx-auto max-w-5xl p-6">
+        <div className="app-backdrop" aria-hidden />
+        <LoadingState />
+      </div>
+    );
+  }
+
+  if (loginRequired && !user) {
+    return <AuthScreen onSignedIn={signedIn} notice={authNotice} />;
   }
 
   const meta = TITLES[page] ?? TITLES.dashboard;
@@ -192,6 +243,21 @@ export default function App() {
         </nav>
 
         <div className="mt-auto space-y-3 px-1">
+          {user ? (
+            <div className="surface flex items-center gap-2 rounded-lg border bg-card px-2 py-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[hsl(var(--glow-2))] text-xs font-bold uppercase text-white">
+                {user.charAt(0)}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium" data-testid="account-name">{user}</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={logOut} aria-label="Log out" title="Log out">
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { setAuthNotice(null); setShowAuth(true); }}>
+              <LogIn className="h-4 w-4" /> Log in or sign up
+            </Button>
+          )}
           <Button variant="ghost" size="sm" className="w-full justify-start gap-2" onClick={() => setDark((value) => !value)}>
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             {dark ? "Light appearance" : "Dark appearance"}
@@ -255,6 +321,8 @@ export default function App() {
           </Suspense>
         </main>
       </div>
+
+      {showAuth && <AuthScreen onSignedIn={signedIn} onCancel={() => setShowAuth(false)} notice={authNotice} />}
 
       <TaskDialog
         open={dialogOpen}

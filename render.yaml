@@ -19,3 +19,10 @@ services:
       # a public server must not index arbitrary folders on itself
       - key: KAIROS_ALLOWED_ROOTS
         value: sample_resources
+      # everyone signs in and gets a private workspace
+      - key: KAIROS_REQUIRE_LOGIN
+        value: "1"
+      # Postgres connection string (for example from neon.tech); Render's free
+      # disk is wiped on every restart, so accounts must live in a database
+      - key: KAIROS_DATABASE_URL
+        sync: false

@@ -94,7 +94,9 @@ export function SettingsPage({ refreshKey, onChanged }: { refreshKey: number; on
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              {storage.autosave.enabled
+              {storage.account
+                ? `Every change is saved automatically to your account (${storage.account}).`
+                : storage.autosave.enabled
                 ? "Every change is saved automatically to this computer."
                 : "Automatic saving is off (KAIROS_AUTOSAVE=0). Changes are saved when the server stops."}
             </p>

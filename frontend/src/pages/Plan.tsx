@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-import { CalendarRange, Check, Clock3 } from "lucide-react";
+import { CalendarDays, CalendarRange, Check, Clock3, Download, List } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Metric } from "@/components/Metric";
+import { PlanCalendar } from "@/components/PlanCalendar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiskBadge } from "@/components/badges";
-import { api, type TimelineDay } from "@/lib/api";
+import { api, type Task, type TimelineDay } from "@/lib/api";
+import { buildIcs, downloadIcs } from "@/lib/ics";
 import { shortDate } from "@/lib/format";
 
 type PlanData = Awaited<ReturnType<typeof api.adaptivePlan>>;
@@ -19,6 +22,8 @@ export function Plan({ refreshKey }: { refreshKey: number }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [view, setView] = useState<"list" | "calendar">("list");
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   async function run() {
     setBusy(true);
@@ -29,6 +34,8 @@ export function Plan({ refreshKey }: { refreshKey: number }) {
         daily_hours: daily,
       });
       setSchedule(result);
+      // deadlines for the calendar view and the .ics export
+      api.listTasks("deadline").then((r) => setTasks(r.tasks)).catch(() => setTasks([]));
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
       setSchedule(null);
@@ -88,6 +95,34 @@ export function Plan({ refreshKey }: { refreshKey: number }) {
             <Metric label="Deferred" value={schedule.deferred.length} />
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <Tabs value={view} onValueChange={(value) => setView(value as "list" | "calendar")}>
+              <TabsList>
+                <TabsTrigger value="list" className="gap-1.5"><List className="h-3.5 w-3.5" /> Day list</TabsTrigger>
+                <TabsTrigger value="calendar" className="gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> Calendar</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => downloadIcs(buildIcs(schedule.timeline, tasks))}
+              title="Download an .ics file you can import into Google Calendar, Outlook or Apple Calendar"
+            >
+              <Download className="h-3.5 w-3.5" /> Export to calendar (.ics)
+            </Button>
+          </div>
+
+          {view === "calendar" ? (
+            <Card>
+              <CardContent className="pt-5">
+                <PlanCalendar timeline={schedule.timeline} tasks={tasks} />
+                <p className="mt-3 text-xs text-muted-foreground">
+                  To add this to Google Calendar: export the .ics file, then open Google Calendar → Settings → Import &amp; export → Import.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
           <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
             <Card>
               <CardHeader className="border-b pb-3">
@@ -128,6 +163,7 @@ export function Plan({ refreshKey }: { refreshKey: number }) {
               </CardContent>
             </Card>
           </div>
+          )}
         </>
       )}
     </div>

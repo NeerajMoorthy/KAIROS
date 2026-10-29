@@ -12,3 +12,4 @@ pytest-cache-files-*/
 profile.json
 _backup_before_fixes/
 KAIROS.zip
+kairos_data/

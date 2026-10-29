@@ -167,6 +167,23 @@ def restore(store: KairosStore, path: Optional[str] = None) -> Dict[str, Any]:
 
     with open(path, "r", encoding="utf-8") as fh:
         data = json.load(fh)
+    apply_snapshot(store, data)
+
+    return {
+        "path": os.path.abspath(path),
+        "loaded": True,
+        "saved_at": data.get("saved_at"),
+        "tasks": len(data.get("tasks", [])),
+        "resources": len(data.get("resources", [])),
+        "mastery": len(data.get("mastery", [])),
+        "focus_sessions": len(data.get("focus_sessions", [])),
+        "folders": len(data.get("folders", [])),
+    }
+
+
+def apply_snapshot(store: KairosStore, data: Any) -> None:
+    """Replace the store's contents with a snapshot dict (from a file or an
+    account's saved workspace). Raises ValueError for an invalid snapshot."""
     if not isinstance(data, dict) or data.get("version", 1) not in SUPPORTED_VERSIONS:
         raise ValueError("Unsupported or invalid KAIROS snapshot.")
     for key in ("tasks", "resources", "mastery", "focus_sessions", "folders"):
@@ -217,17 +234,6 @@ def restore(store: KairosStore, path: Optional[str] = None) -> Dict[str, Any]:
     replacement.refresh_urgency_scores()
     store.__dict__.clear()
     store.__dict__.update(replacement.__dict__)
-
-    return {
-        "path": os.path.abspath(path),
-        "loaded": True,
-        "saved_at": data.get("saved_at"),
-        "tasks": len(data.get("tasks", [])),
-        "resources": len(data.get("resources", [])),
-        "mastery": len(data.get("mastery", [])),
-        "focus_sessions": len(data.get("focus_sessions", [])),
-        "folders": len(data.get("folders", [])),
-    }
 
 
 def autoload_on_startup(store: KairosStore, path: Optional[str] = None) -> Dict[str, Any]:

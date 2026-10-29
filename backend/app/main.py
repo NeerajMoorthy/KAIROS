@@ -42,6 +42,9 @@ GET    /api/settings, PATCH           daily availability
 GET    /api/snapshot/status           snapshot file and autosave state
 POST   /api/snapshot/save | load      save now / reload from disk
 POST   /api/demo/seed | reset         example data / clear the workspace
+POST   /api/auth/signup | login       create an account or log in; returns a token
+POST   /api/auth/logout               end this login session
+GET    /api/auth/me                   who is logged in, and whether login is required
 
 Compatibility endpoints, not used by the interface: /api/learning* (self-rated
 concept confidence and a weighted study plan), /api/reminders, /api/schedule
@@ -49,20 +52,28 @@ concept confidence and a weighted study plan), /api/reminders, /api/schedule
 
 While the server runs, every successful POST/PUT/PATCH/DELETE that can change
 data is followed by an atomic snapshot save (see persistence.autosave).
+
+Accounts: a request with "Authorization: Bearer <token>" works on that user's
+private workspace. Without a token it uses the shared local workspace, unless
+KAIROS_REQUIRE_LOGIN=1 (set on the hosted server), in which case every
+data endpoint answers 401 until the user logs in.
 """
 
 from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import date
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .models import (
+    Credentials,
     FocusSessionStart,
     FocusSessionUpdate,
     FolderRescanRequest,
@@ -74,12 +85,43 @@ from .models import (
     TaskCreate,
     TaskUpdate,
 )
-from .services import adaptive, focus, insights, persistence, reminders, resource_service, scheduler, workspace
-from .services.store import build_task, now_iso, store
+from .services import adaptive, focus, insights, persistence, reminders, resource_service, scheduler, storage, workspace
+from .services.accounts import AccountError, AccountService
+from .services.store import KairosStore, build_task, now_iso
+from .services.store import store as local_store
 from .services.task_analyzer import FORMULA, analyze
 
 APP_NAME = "KAIROS"
 APP_TAGLINE = "Knowledge Acquisition, Indexing, Ranking & Optimized Scheduling"
+
+REQUIRE_LOGIN = os.environ.get("KAIROS_REQUIRE_LOGIN", "").strip().lower() in {"1", "true", "yes", "on"}
+
+# Set per request by the middleware below: the logged-in user (or None) and
+# the workspace this request reads and changes.
+_current_user: ContextVar[Optional[str]] = ContextVar("kairos_user", default=None)
+_current_store: ContextVar[KairosStore] = ContextVar("kairos_store", default=local_store)
+
+
+class _CurrentStore:
+    """Stands in for the store in every endpoint and forwards to the current
+    request's workspace, so endpoint code stays the same for every user."""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_current_store.get(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        setattr(_current_store.get(), name, value)
+
+
+store: Any = _CurrentStore()
+_accounts: Optional[AccountService] = None
+
+
+def accounts() -> AccountService:
+    global _accounts
+    if _accounts is None:
+        _accounts = AccountService(storage.from_environment())
+    return _accounts
 
 
 @asynccontextmanager
@@ -87,14 +129,14 @@ async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
     # startup: best-effort restore of the last JSON snapshot (see
     # services/persistence.py) so uvicorn --reload and normal restarts don't
     # erase the store
-    persistence.autoload_on_startup(store)
+    persistence.autoload_on_startup(local_store)
     persistence.set_autosave(persistence.autosave_requested())
     try:
         yield
     finally:
         persistence.set_autosave(False)
         # shutdown: best-effort save, mirroring the restore above
-        persistence.autosave_on_shutdown(store)
+        persistence.autosave_on_shutdown(local_store)
 
 
 app = FastAPI(
@@ -104,21 +146,47 @@ app = FastAPI(
 # POST endpoints that only compute and never change stored data. Everything
 # else that writes (POST/PUT/PATCH/DELETE) is followed by an autosave, so a
 # new mutating endpoint is persisted by default rather than by remembering to.
-_READ_ONLY_POSTS = ("/api/plan", "/api/schedule", "/api/snapshot/")
+_READ_ONLY_POSTS = ("/api/plan", "/api/schedule", "/api/snapshot/", "/api/auth/")
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_PUBLIC_PATHS = ("/api/health", "/api/auth/")
+
+
+def _bearer_token(request: Request) -> Optional[str]:
+    header = request.headers.get("authorization", "")
+    scheme, _, token = header.partition(" ")
+    return token.strip() if scheme.lower() == "bearer" and token.strip() else None
 
 
 @app.middleware("http")
-async def _autosave_after_changes(request: Request, call_next):
-    response = await call_next(request)
+async def _workspace_and_autosave(request: Request, call_next):
     path = request.url.path
+    token = _bearer_token(request)
+    user = await run_in_threadpool(accounts().user_for_token, token) if token else None
+    if path.startswith("/api/") and not path.startswith(_PUBLIC_PATHS) and request.method != "OPTIONS":
+        if token and not user:
+            return JSONResponse({"detail": "Your login has expired. Please log in again."}, status_code=401)
+        if REQUIRE_LOGIN and not user:
+            return JSONResponse({"detail": "Please log in to use KAIROS."}, status_code=401)
+
+    workspace_store = await run_in_threadpool(accounts().workspace, user) if user else local_store
+    user_token = _current_user.set(user)
+    store_token = _current_store.set(workspace_store)
+    try:
+        response = await call_next(request)
+    finally:
+        _current_user.reset(user_token)
+        _current_store.reset(store_token)
+
     if (
         request.method in _WRITE_METHODS
         and path.startswith("/api/")
         and response.status_code < 400
         and not path.startswith(_READ_ONLY_POSTS)
     ):
-        await run_in_threadpool(persistence.autosave, store)
+        if user:
+            await run_in_threadpool(accounts().save_workspace, user)
+        else:
+            await run_in_threadpool(persistence.autosave, local_store)
     return response
 
 
@@ -135,7 +203,7 @@ app.add_middleware(
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", *_EXTRA_ORIGINS],
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -152,7 +220,42 @@ def health() -> Dict[str, Any]:
         "tasks": store.task_index.size,
         "resources": store.resource_index.size,
         "urgency_formula": FORMULA,
+        "login_required": REQUIRE_LOGIN,
     }
+
+
+# ---------------------------------------------------------------------- #
+# accounts
+# ---------------------------------------------------------------------- #
+@app.post("/api/auth/signup")
+def sign_up(body: Credentials) -> Dict[str, Any]:
+    try:
+        return accounts().sign_up(body.username, body.password)
+    except AccountError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/auth/login")
+def log_in(body: Credentials) -> Dict[str, Any]:
+    try:
+        return accounts().log_in(body.username, body.password)
+    except AccountError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+
+@app.post("/api/auth/logout")
+def log_out(request: Request) -> Dict[str, str]:
+    token = _bearer_token(request)
+    if token:
+        accounts().log_out(token)
+    return {"status": "logged out"}
+
+
+@app.get("/api/auth/me")
+def me(request: Request) -> Dict[str, Any]:
+    token = _bearer_token(request)
+    username = accounts().user_for_token(token) if token else None
+    return {"username": username, "login_required": REQUIRE_LOGIN}
 
 
 @app.get("/api/dashboard")
@@ -584,17 +687,24 @@ def reset() -> Dict[str, str]:
 # ---------------------------------------------------------------------- #
 @app.get("/api/snapshot/status")
 def snapshot_status() -> Dict[str, Any]:
-    return persistence.status()
+    user = _current_user.get()
+    return accounts().workspace_status(user) if user else persistence.status()
 
 
 @app.post("/api/snapshot/save")
 def snapshot_save() -> Dict[str, Any]:
-    return persistence.save(store)
+    user = _current_user.get()
+    if user:
+        data = accounts().save_workspace(user)
+        return {"path": "your account", "saved_at": data["saved_at"], "tasks": len(data["tasks"])}
+    return persistence.save(local_store)
 
 
 @app.post("/api/snapshot/load")
 def snapshot_load() -> Dict[str, Any]:
+    if _current_user.get():
+        raise HTTPException(status_code=400, detail="Your account is saved automatically; there is no file to load.")
     try:
-        return persistence.restore(store)
+        return persistence.restore(local_store)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise HTTPException(status_code=400, detail=f"Could not restore snapshot: {exc}")

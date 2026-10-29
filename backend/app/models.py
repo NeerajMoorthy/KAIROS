@@ -178,3 +178,8 @@ class SettingsUpdate(BaseModel):
 class MasteryUpdate(BaseModel):
     concept: str = Field(..., min_length=1)
     mastery: int = Field(..., ge=0, le=100)
+
+
+class Credentials(BaseModel):
+    username: str = Field(..., min_length=1, max_length=64)
+    password: str = Field(..., min_length=1, max_length=256)

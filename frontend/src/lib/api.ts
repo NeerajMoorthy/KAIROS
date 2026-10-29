@@ -110,6 +110,8 @@ export interface IndexOutcome {
 
 export interface SnapshotStatus {
   path: string;
+  /** set when the workspace belongs to a logged-in account */
+  account?: string;
   exists: boolean;
   readable?: boolean;
   saved_at?: string;
@@ -204,11 +206,39 @@ export interface Reminder {
 export const API_BASE: string = import.meta.env.VITE_API_BASE ?? "";
 const BASE = API_BASE;
 
+const TOKEN_KEY = "kairos-token";
+/** Fired when the server rejects the saved login, so the app can show the login screen. */
+export const AUTH_EXPIRED_EVENT = "kairos:auth-expired";
+
+export function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* storage unavailable: the login lasts for this visit only */
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
+  if (res.status === 401 && !path.startsWith("/api/auth/")) {
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -233,7 +263,17 @@ const post = <T,>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", body: JSON.stringify(body) });
 
 export const api = {
-  health: () => request<{ status: string; name: string; tagline: string; urgency_formula: string }>("/api/health"),
+  health: () =>
+    request<{ status: string; name: string; tagline: string; urgency_formula: string; login_required?: boolean }>("/api/health"),
+
+  // accounts ----------------------------------------------------------
+  signUp: (username: string, password: string) =>
+    post<{ token: string; username: string }>("/api/auth/signup", { username, password }),
+  logIn: (username: string, password: string) =>
+    post<{ token: string; username: string }>("/api/auth/login", { username, password }),
+  logOut: () => post<{ status: string }>("/api/auth/logout", {}),
+  me: () => request<{ username: string | null; login_required: boolean }>("/api/auth/me"),
+
 
   dashboard: () =>
     request<{

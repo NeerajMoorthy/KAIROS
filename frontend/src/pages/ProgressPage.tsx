@@ -2,6 +2,7 @@ import { AlertTriangle, Clock3, ListTodo, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { Metric } from "@/components/Metric";
+import { FocusTimeChart, PlannedVsActualChart } from "@/components/ProgressCharts";
 import { RiskBadge } from "@/components/badges";
 import { ErrorState, LoadingState } from "@/components/states";
 import { useApi } from "@/hooks/useApi";
@@ -15,6 +16,7 @@ export function ProgressPage({
   onOpenTask: (id: string) => void;
 }) {
   const { data, error, reload } = useApi(api.progressOverview, [refreshKey]);
+  const { data: focus } = useApi(api.focusSessions, [refreshKey]);
 
   if (error && !data) return <ErrorState message={error} onRetry={reload} />;
   if (!data) return <LoadingState />;
@@ -26,6 +28,11 @@ export function ProgressPage({
         <Metric icon={ListTodo} label="Tasks complete" value={`${data.completed_tasks} / ${data.completed_tasks + data.remaining_tasks}`} />
         <Metric icon={Clock3} label="Planned effort" value={`${data.planned_hours} h`} hint={`${data.actual_hours} h tracked`} />
         <Metric icon={AlertTriangle} label="Work remaining" value={`${data.remaining_hours} h`} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <FocusTimeChart sessions={focus?.sessions ?? []} />
+        <PlannedVsActualChart tasks={data.tasks} />
       </div>
 
       <Card>
